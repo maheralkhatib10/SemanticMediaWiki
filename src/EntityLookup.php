@@ -111,6 +111,6 @@ interface EntityLookup {
 	/**
 	 * @since 3.0
 	 */
-	public function invalidateCache();
+	public function invalidate();
 
 }

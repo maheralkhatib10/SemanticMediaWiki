@@ -512,6 +512,9 @@ class Settings extends Options {
 				'smwgTypePagingLimit'  => '3.1.0',
 				'smwgConceptPagingLimit'  => '3.1.0',
 				'smwgPropertyPagingLimit'  => '3.1.0',
+				'smwgEntityLookupCacheType' => '3.1.0',
+				'smwgEntityLookupCacheLifetime' => '3.1.0',
+				'smwgEntityLookupFeatures' => '3.1.0',
 				'options' => [
 					'smwgCacheUsage' =>  [
 						'smwgStatisticsCache' => '3.1.0',

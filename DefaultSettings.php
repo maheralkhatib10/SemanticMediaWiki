@@ -992,47 +992,19 @@ return array(
 	##
 
 	###
-	# Separate cache type to allow for adding a more responsive cache layer
-	# (redis, riak) when requesting value lookups from the SQLStore.
-	#
-	# CACHE_NONE = disabled, uses the standard SQLStore DB access for all
-	# lookups
-	#
-	# @since 2.3 (experimental)
-	#
-	# @default: CACHE_NONE, users need to actively enable it in order
-	# to make use of it
+	# Disabled with 3.0, removal with 3.1
 	##
 	'smwgEntityLookupCacheType' => CACHE_NONE,
 	##
 
 	###
-	# Declares a lifetime of a cached item for `smwgEntityLookupCacheType` until it
-	# is removed if not invalidated before.
-	#
-	# @since 2.3
+	# Disabled with 3.0, removal with 3.1
 	##
 	'smwgEntityLookupCacheLifetime' => 60 * 60 * 24 * 7, // a week
 	##
 
 	##
-	# Features expected to be enabled in CachedValueLookupStore
-	#
-	# Flags that declare a enable/disable state of a supported functionality. If a
-	# feature is disabled then a connection is always established to the standard
-	# Repository/DB backend.
-	#
-	# The settings are only relevant for cases where `smwgEntityLookupCacheType` is
-	# set.
-	#
-	# - SMW_VL_SD: corresponds to Store::getSemanticData
-	# - SMW_VL_PL: corresponds to Store::getProperties
-	# - SMW_VL_PV: corresponds to Store::getPropertyValues
-	# - SMW_VL_PS: corresponds to Store::getPropertySubjects
-	#
-	# @since 2.3
-	#
-	# @default: all features are enabled
+	# Disabled with 3.0, removal with 3.1
 	##
 	'smwgEntityLookupFeatures' => SMW_VL_SD | SMW_VL_PL | SMW_VL_PV | SMW_VL_PS,
 	##
