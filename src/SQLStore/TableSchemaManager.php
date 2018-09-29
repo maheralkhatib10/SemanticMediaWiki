@@ -105,6 +105,36 @@ class TableSchemaManager {
 	}
 
 	/**
+	 * @since 3.0
+	 *
+	 * @return Table[]
+	 */
+	public function getOrphanedTables() {
+
+		$connection = $this->store->getConnection( DB_MASTER );
+
+		$orphanedTables = [];
+		$tables = $this->getTables();
+
+		// Find tables that are orphaned which means they exists but no longer
+		// listed as part of the current schema
+		foreach ( $connection->listTables() as $table ) {
+
+			// Convention is that any table with `smw` will be inspected (no
+			// other extension is expected to use the prefix!)
+			if ( strpos( $table, TableBuilder::TABLE_PREFIX ) !== false ) {
+				$tableName = strstr( $table, TableBuilder::TABLE_PREFIX );
+
+				if ( !isset( $tables[$tableName] ) ) {
+					$orphanedTables[$tableName] = new Table( $tableName );
+				}
+			}
+		}
+
+		return $orphanedTables;
+	}
+
+	/**
 	 * @since 2.5
 	 *
 	 * @return Table[]
@@ -340,7 +370,7 @@ class TableSchemaManager {
 	}
 
 	private function addTable( Table $table ) {
-		$this->tables[] = $table;
+		$this->tables[$table->getName()] = $table;
 	}
 
 }

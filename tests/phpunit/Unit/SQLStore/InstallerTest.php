@@ -32,6 +32,10 @@ class InstallerTest extends \PHPUnit_Framework_TestCase {
 			->disableOriginalConstructor()
 			->getMock();
 
+		$this->tableSchemaManager->expects( $this->any() )
+			->method( 'getOrphanedTables' )
+			->will( $this->returnValue( [] ) );
+
 		$this->tableBuilder = $this->getMockBuilder( '\SMW\SQLStore\TableBuilder' )
 			->disableOriginalConstructor()
 			->getMock();
@@ -93,6 +97,46 @@ class InstallerTest extends \PHPUnit_Framework_TestCase {
 		$this->assertTrue(
 			$instance->install()
 		);
+	}
+
+	public function testInstall_OrphanedTables() {
+
+		$tableSchemaManager = $this->getMockBuilder( '\SMW\SQLStore\TableSchemaManager' )
+			->disableOriginalConstructor()
+			->getMock();
+
+		$table = $this->getMockBuilder( '\SMW\SQLStore\TableBuilder\Table' )
+			->disableOriginalConstructor()
+			->getMock();
+
+		$tableSchemaManager->expects( $this->atLeastOnce() )
+			->method( 'getTables' )
+			->will( $this->returnValue( [] ) );
+
+		$tableSchemaManager->expects( $this->atLeastOnce() )
+			->method( 'getOrphanedTables' )
+			->will( $this->returnValue( [ 'smw_foo' => $table ] ) );
+
+		$tableBuilder = $this->getMockBuilder( '\SMW\SQLStore\TableBuilder\TableBuilder' )
+			->disableOriginalConstructor()
+			->setMethods( [ 'create', 'drop' ] )
+			->getMockForAbstractClass();
+
+		$tableBuilder->expects( $this->once() )
+			->method( 'drop' )
+			->with($this->equalTo( $table ) );
+
+		$this->tableIntegrityExaminer->expects( $this->once() )
+			->method( 'checkOnPostCreation' );
+
+		$instance = new Installer(
+			$tableSchemaManager,
+			$tableBuilder,
+			$this->tableIntegrityExaminer
+		);
+
+		$instance->setMessageReporter( $this->spyMessageReporter );
+		$instance->install();
 	}
 
 	public function testInstallWithSupplementJobs() {

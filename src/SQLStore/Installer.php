@@ -107,9 +107,7 @@ class Installer implements MessageReporter {
 		}
 
 		$messageReporter = $this->newMessageReporter( $verbose );
-
 		$messageReporter->reportMessage( "\nSelected storage engine: \"SMWSQLStore3\" (or an extension thereof)\n" );
-		$messageReporter->reportMessage( "\nSetting up standard database configuration for SMW ...\n\n" );
 
 		$this->tableBuilder->setMessageReporter(
 			$messageReporter
@@ -118,6 +116,19 @@ class Installer implements MessageReporter {
 		$this->tableIntegrityExaminer->setMessageReporter(
 			$messageReporter
 		);
+
+		$messageReporter->reportMessage( "\nChecking schema consistency ...\n" );
+
+		if ( ( $orphanedTables = $this->tableSchemaManager->getOrphanedTables() ) !== [] ) {
+			$messageReporter->reportMessage( "\nDeleting orphaned tables ...\n" );
+
+			foreach ( $orphanedTables as $table ) {
+				$this->tableBuilder->drop( $table );
+			}
+		}
+
+		$messageReporter->reportMessage( "   ... done.\n" );
+		$messageReporter->reportMessage( "\nSetting up database tables ...\n\n" );
 
 		foreach ( $this->tableSchemaManager->getTables() as $table ) {
 			$this->tableBuilder->create( $table );
