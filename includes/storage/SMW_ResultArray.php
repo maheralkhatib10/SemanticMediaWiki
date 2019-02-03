@@ -7,6 +7,7 @@ use SMW\Query\Result\ResolverJournal;
 use SMW\Query\Result\ResultFieldMatchFinder;
 use SMWDataItem as DataItem;
 use SMW\DIWikiPage;
+use SMWQueryResult as QueryResult;
 
 /**
  * Container for the contents of a single result field of a query result,
@@ -61,20 +62,49 @@ class SMWResultArray {
 	private $contextPage;
 
 	/**
-	 * Constructor.
+	 * @since 3.1
+	 *
+	 * @param SMWDIWikiPage $resultPage
+	 * @param PrintRequest $printRequest
+	 * @param QueryResult $queryResult
+	 */
+	public static function factory( SMWDIWikiPage $resultPage, PrintRequest $printRequest, QueryResult $queryResult ) {
+
+		$resultArray = new self(
+			$resultPage,
+			$printRequest,
+			$queryResult->getStore(),
+			$queryResult->getResultFieldMatchFinder()
+		);
+
+		$query = $queryResult->getQuery();
+
+		$resultArray->setQueryToken( $query->getQueryToken() );
+		$resultArray->setContextPage( $query->getContextPage() );
+
+		return $resultArray;
+	}
+
+	/**
+	 * @since 1.6
 	 *
 	 * @param SMWDIWikiPage $resultPage
 	 * @param PrintRequest $printRequest
 	 * @param SMWStore $store
+	 * @param ResultFieldMatchFinder|null $resultFieldMatchFinde
 	 */
-	public function __construct( SMWDIWikiPage $resultPage, PrintRequest $printRequest, SMWStore $store ) {
+	public function __construct( SMWDIWikiPage $resultPage, PrintRequest $printRequest, SMWStore $store, ResultFieldMatchFinder $resultFieldMatchFinder = null ) {
 		$this->mResult = $resultPage;
 		$this->mPrintRequest = $printRequest;
 		$this->mStore = $store;
 		$this->mContent = false;
 
 		// FIXME 3.0; Inject the object
-		$this->resultFieldMatchFinder = new ResultFieldMatchFinder( $store, $printRequest );
+		$this->resultFieldMatchFinder = $resultFieldMatchFinder;
+
+		if ( $this->resultFieldMatchFinder === null ) {
+			$this->resultFieldMatchFinder = new ResultFieldMatchFinder( $store );
+		}
 	}
 
 	/**
@@ -277,6 +307,10 @@ class SMWResultArray {
 		if ( $this->mContent !== false ) {
 			return;
 		}
+
+		$this->resultFieldMatchFinder->setPrintRequest(
+			$this->mPrintRequest
+		);
 
 		$this->resultFieldMatchFinder->setQueryToken(
 			$this->queryToken

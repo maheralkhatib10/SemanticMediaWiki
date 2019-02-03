@@ -17,15 +17,15 @@
 		},
 		{
 			"page": "Table-without-sep-parameter",
-			"contents": "{{#ask:[[Has page::Foo]] [[Has page::42]]\n |?Has page\n |?Has text\n |format=table\n |headers=plain\n |link=none\n }}"
+			"contents": "{{#ask:[[Has page::Foo]] [[Has page::42]] |?Has page |?Has text |format=table |headers=plain |link=none }}"
 		},
 		{
 			"page": "Table-with-sep-parameter",
-			"contents": "{{#ask:[[Has page::Foo]] [[Has page::42]]\n |?Has page\n |?Has text\n |format=table\n |sep=;\n |headers=plain\n |link=none\n }}"
+			"contents": "{{#ask:[[Has page::Foo]] [[Has page::42]] |?Has page |?Has text |format=table |sep=; |headers=plain |link=none }}"
 		},
 		{
 			"page": "Broadtable-with-sep-parameter",
-			"contents": "{{#ask:[[Has page::Foo]] [[Has page::42]]\n |?Has page\n |?Has text\n |format=broadtable\n |sep=;\n |headers=plain\n |link=none\n }}"
+			"contents": "{{#ask:[[Has page::Foo]] [[Has page::42]] |?Has page |?Has text |format=broadtable |sep=; |headers=plain |link=none }}"
 		}
 	],
 	"tests": [

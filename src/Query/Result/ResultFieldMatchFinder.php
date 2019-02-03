@@ -44,6 +44,16 @@ class ResultFieldMatchFinder {
 	private $queryToken;
 
 	/**
+	 * @var DIWikiPage[]
+	 */
+	private $dataItems = [];
+
+	/**
+	 * @var ContentFetcher
+	 */
+	private $contentFetcher;
+
+	/**
 	 * @var boolean|array
 	 */
 	private static $catCacheObj = false;
@@ -59,9 +69,19 @@ class ResultFieldMatchFinder {
 	 * @param Store $store
 	 * @param PrintRequest $printRequest
 	 */
-	public function __construct( Store $store, PrintRequest $printRequest ) {
-		$this->printRequest = $printRequest;
+	public function __construct( Store $store, ContentFetcher $contentFetcher = null, PrintRequest $printRequest = null ) {
 		$this->store = $store;
+		$this->printRequest = $printRequest;
+		$this->contentFetcher = $contentFetcher;
+
+		if ( $this->contentFetcher === null ) {
+			$this->contentFetcher = new ContentFetcher( $store );
+		}
+	}
+
+	public function setPrintRequest( PrintRequest $printRequest ) {
+		$this->printRequest = $printRequest;
+		$this->contentFetcher->setPrintRequest( $this->printRequest );
 	}
 
 	/**
@@ -80,6 +100,8 @@ class ResultFieldMatchFinder {
 		$this->queryToken->setOutputFormat(
 			$this->printRequest->getOutputFormat()
 		);
+
+		$this->contentFetcher->setQueryToken( $this->queryToken );
 	}
 
 	/**
@@ -92,6 +114,10 @@ class ResultFieldMatchFinder {
 	public function findAndMatch( DataItem $dataItem ) {
 
 		$content = [];
+
+		if ( $this->printRequest === null ) {
+			throw new RuntimeException( "Missing a `PrintRequest` instance!" );
+		}
 
 		// Request the current element (page in result set).
 		// The limit is ignored here.
@@ -162,6 +188,15 @@ class ResultFieldMatchFinder {
 		$order = trim( $this->printRequest->getParameter( 'order' ) );
 		$options = null;
 
+		// As a chain request with a value set (which is unsorted) and should be
+		// sorted, a SELECT limit would only return a set without all values making
+		// it impossible to apply any meaningful sorting on all members
+		//
+		// @see ResultFieldMatchFinder::findContent post-processing
+	//	if ( $this->printRequest->isMode( PrintRequest::PRINT_CHAIN ) ) {
+	//		$limit = false;
+	//	}
+
 		// Important: use "!=" for order, since trim() above does never return "false", use "!==" for limit since "0" is meaningful here.
 		if ( ( $limit !== false ) || ( $order != false ) ) {
 			$options = new RequestOptions();
@@ -185,12 +220,24 @@ class ResultFieldMatchFinder {
 			}
 		}
 
+		// If something like `|+limit=2|+order=asc` appears for a `_rec...` type
+		// ensure that it fetches all values (those are unsorted and cannot be
+		// sorted during the SELECT since its uses the object `wikipage+subobject`
+		// as reference) and apply a post-processing
+	//	if (
+	//		strpos( $this->printRequest->getTypeID(), '_rec' ) !== false &&
+	//		$this->printRequest->getParameter( 'limit' ) !== false &&
+	//		$this->printRequest->getParameter( 'order' ) !== false ) {
+	//		$options->limit = false;
+	//		$options->sort = false;
+	//	}
+
 		return $options;
 	}
 
 	private function getResultsForProperty( $dataItem ) {
 
-		$content = $this->getResultContent(
+		$content = $this->findContent(
 			$dataItem
 		);
 
@@ -229,15 +276,25 @@ class ResultFieldMatchFinder {
 				// Return the text representation without a language reference
 				// (tag) since the value has been filtered hence only matches
 				// that language
-				$newcontent[] = $this->applyContentManipulation( $textValue->getDataItem() );
+				$newcontent[] = $this->contentFetcher->highlightTokens( $textValue->getDataItem() );
 
 				// Set the index so ResultArray::getNextDataValue can
 				// find the correct PropertyDataItem (_TEXT;_LCODE) position
 				// to match the DI
 				$this->printRequest->setParameter( 'index', 1 );
 			} elseif ( $lang === false && $index !== false && ( $dataItemByRecord = $multiValue->getDataItemByIndex( $index ) ) !== null ) {
-				$newcontent[] = $this->applyContentManipulation( $dataItemByRecord );
+				$newcontent[] = $this->contentFetcher->highlightTokens( $dataItemByRecord );
 			}
+		}
+
+		// Reorder since only here it is possible to get the value according to
+		// the index
+		if ( $this->printRequest->getParameter( 'order' ) !== false ) {
+			$newcontent = Restrictions::applySortRestriction( $this->printRequest, $newcontent );
+		}
+
+		if ( $this->printRequest->getParameter( 'limit' ) !== false ) {
+			$newcontent = Restrictions::applyLimitRestriction( $this->printRequest, $newcontent );
 		}
 
 		$content = $newcontent;
@@ -250,7 +307,7 @@ class ResultFieldMatchFinder {
 		return strpos( $this->printRequest->getTypeID(), '_rec' ) !== false && $this->printRequest->getParameter( $parameter ) !== false;
 	}
 
-	private function getResultContent( DataItem $dataItem ) {
+	private function findContent( DataItem $dataItem ) {
 
 		$dataValue = $this->printRequest->getData();
 		$dataItems = [ $dataItem ];
@@ -258,6 +315,17 @@ class ResultFieldMatchFinder {
 		if ( !$dataValue->isValid() ) {
 			return [];
 		}
+
+		$requestOptions = $this->getRequestOptions();
+
+		if ( $requestOptions === null ) {
+			$requestOptions = new RequestOptions();
+			$requestOptions->conditionConstraint = true;
+		} else {
+			$requestOptions->setOption( RequestOptions::CONDITION_CONSTRAINT_RESULT, true );
+		}
+
+		$requestOptions->isChain = false;
 
 		// If it is a chain then try to find a connected DIWikiPage subject that
 		// matches the property on the chained PrintRequest.
@@ -268,10 +336,11 @@ class ResultFieldMatchFinder {
 		// for `Has page` and try to match a Number annotation on the results
 		// retrieved from `Has page`.
 		if ( $this->printRequest->isMode( PrintRequest::PRINT_CHAIN ) ) {
+			$requestOptions->isChain = $dataValue->getDataItem()->getString();
 
 			// Output of the previous iteration is the input for the next iteration
 			foreach ( $dataValue->getPropertyChainValues() as $pv ) {
-				$dataItems = $this->doFetchPropertyValues( $dataItems, $pv );
+				$dataItems = $this->contentFetcher->fetch( $dataItems, $pv->getDataItem(), $requestOptions );
 
 				// If the results return empty then it means that for this element
 				// the chain has no matchable items hence we stop
@@ -283,75 +352,29 @@ class ResultFieldMatchFinder {
 			$dataValue = $dataValue->getLastPropertyChainValue();
 		}
 
-		return $this->doFetchPropertyValues( $dataItems, $dataValue );
-	}
-
-	private function doFetchPropertyValues( $dataItems, $dataValue ) {
-
-		$propertyValues = [];
-
-		foreach ( $dataItems as $dataItem ) {
-
-			if ( !$dataItem instanceof DIWikiPage ) {
-				continue;
-			}
-
-			$pv = $this->store->getPropertyValues(
-				$dataItem,
-				$dataValue->getDataItem(),
-				$this->getRequestOptions()
-			);
-
-			if ( $pv instanceof \Iterator ) {
-				$pv = iterator_to_array( $pv );
-			}
-
-			$propertyValues = array_merge( $propertyValues, $pv );
-			unset( $pv );
-		}
-
-		array_walk( $propertyValues, function( &$dataItem ) {
-			$dataItem = $this->applyContentManipulation( $dataItem );
-		} );
-
-		return $propertyValues;
-	}
-
-	private function applyContentManipulation( $dataItem ) {
-
-		if ( !$dataItem instanceof DIBlob ) {
-			return $dataItem;
-		}
-
-		$type = $this->printRequest->getTypeID();
-
-		// Avoid `_cod`, `_eid` or similar types that use the DIBlob as storage
-		// object
-		if ( $type !== '_txt' && strpos( $type, '_rec' ) === false ) {
-			return $dataItem;
-		}
-
-		$outputFormat = $this->printRequest->getOutputFormat();
-
-		// #2325
-		// Output format marked with -raw are allowed to retain a possible [[ :: ]]
-		// annotation
-		// '-ia' is deprecated use `-raw`
-		if ( strpos( $outputFormat, '-raw' ) !== false || strpos( $outputFormat, '-ia' ) !== false ) {
-			return $dataItem;
-		}
-
-		// #1314
-		$string = InTextAnnotationParser::removeAnnotation(
-			$dataItem->getString()
+		$content = $this->contentFetcher->fetch(
+			$dataItems,
+			$dataValue->getDataItem(),
+			$requestOptions
 		);
 
-		// #2253
-		if ( $this->queryToken !== null ) {
-			$string = $this->queryToken->highlight( $string );
+		$isRecord = strpos( $this->printRequest->getTypeID(), '_rec' ) !== false;
+
+		if ( $this->printRequest->getParameter( 'order' ) !== false && !$isRecord ) {
+			$content = Restrictions::applySortRestriction( $this->printRequest, $content );
 		}
 
-		return new DIBlob( $string );
+		if ( $this->printRequest->getParameter( 'limit' ) !== false && !$isRecord ) {
+			$content = Restrictions::applyLimitRestriction( $this->printRequest, $content );
+		}
+
+		// For a column limit on a chain only apply limit restrictions after all
+		// members have been fetched
+	//	if ( $this->printRequest->isMode( PrintRequest::PRINT_CHAIN ) ) {
+	//		$content = Restrictions::applyLimitRestriction( $this->printRequest, $content );
+	//	}
+
+		return $content;
 	}
 
 }

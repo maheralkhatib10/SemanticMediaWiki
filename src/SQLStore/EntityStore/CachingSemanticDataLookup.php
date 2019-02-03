@@ -194,6 +194,20 @@ class CachingSemanticDataLookup {
 	}
 
 	/**
+	 * @since 3.1
+	 *
+	 * @param integer $id
+	 * @param DataItem $dataItem
+	 * @param PropertyTableDefinition $propertyTableDef
+	 * @param RequestOptions $requestOptions
+	 *
+	 * @return RequestOptions|null
+	 */
+	public function prefetchSemanticData( $subjects, DataItem $dataItem = null, PropertyTableDefinition $propertyTableDef, RequestOptions $requestOptions = null ) {
+		return $this->semanticDataLookup->prefetchSemanticData( $subjects, $dataItem, $propertyTableDef, $requestOptions );
+	}
+
+	/**
 	 * @since 3.0
 	 *
 	 * @param integer $id

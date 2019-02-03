@@ -287,7 +287,11 @@ class Query {
 	 * @param string $value
 	 */
 	public function option( $key, $value ) {
-		$this->options[$key] = $value;
+		if ( $value === null ) {
+			unset( $this->options[$key] );
+		} else {
+			$this->options[$key] = $value;
+		}
 	}
 
 	/**

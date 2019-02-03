@@ -51,7 +51,7 @@ class LinkBatch {
 
 		// Avoid "... ParameterAssertionException: Bad value for parameter
 		// $dbkey: invalid DB key '_ASK'"
-		if ( $dbkey{0} === '_' ) {
+		if ( $dbkey !== '' && $dbkey{0} === '_' ) {
 			return;
 		}
 
@@ -85,6 +85,9 @@ class LinkBatch {
 		if ( $this->linkBatch === null ) {
 			$this->linkBatch = new \LinkBatch();
 		}
+
+		// Reset the list to avoid having previous members being executed again
+		$this->linkBatch->setArray( [] );
 
 		foreach ( $this->batch as $dataItem ) {
 			$this->linkBatch->add( $dataItem->getNamespace(), $dataItem->getDBKey() );

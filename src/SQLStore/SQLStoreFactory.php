@@ -24,6 +24,7 @@ use SMW\SQLStore\EntityStore\SubobjectListFinder;
 use SMW\SQLStore\EntityStore\TraversalPropertyLookup;
 use SMW\SQLStore\EntityStore\PropertySubjectsLookup;
 use SMW\SQLStore\EntityStore\PropertiesLookup;
+use SMW\SQLStore\EntityStore\BulkLoader;
 use SMW\SQLStore\Lookup\CachedListLookup;
 use SMW\SQLStore\Lookup\ListLookup;
 use SMW\SQLStore\Lookup\PropertyUsageListLookup;
@@ -763,6 +764,19 @@ class SQLStoreFactory {
 	}
 
 	/**
+	 * @since 3.1
+	 *
+	 * @return BulkLoader
+	 */
+	public function newBulkLoader() {
+		return new BulkLoader(
+			$this->store,
+			$this->newSemanticDataLookup(),
+			$this->newPropertySubjectsLookup()
+		);
+	}
+
+	/**
 	 * @since 3.0
 	 *
 	 * @return ServicesContainer
@@ -786,6 +800,10 @@ class SQLStoreFactory {
 				'QueryDependencyLinksStoreFactory' => [
 					'_service' => [ $this, 'newQueryDependencyLinksStoreFactory' ],
 					'_type'    => QueryDependencyLinksStoreFactory::class
+				],
+				'BulkLoader' => [
+					'_service' => [ $this, 'newBulkLoader' ],
+					'_type'    => BulkLoader::class
 				],
 				'PropertyTableIdReferenceFinder' => function() {
 					static $singleton;
